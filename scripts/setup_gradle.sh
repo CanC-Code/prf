@@ -1,56 +1,85 @@
 #!/usr/bin/env bash
 set -e
+echo "=== Full Android Gradle Project Bootstrap ==="
 
-echo "=== Bootstrapping Gradle Project ==="
+# Ensure required directories exist
+mkdir -p app/src/main/java/com/example/rpg
+mkdir -p app/src/main/res
+mkdir -p app/src/main/res/mipmap-48x48
+mkdir -p app/src/main/res/mipmap-72x72
+mkdir -p app/src/main/res/mipmap-96x96
+mkdir -p app/src/main/res/mipmap-144x144
+mkdir -p app/src/main/res/mipmap-192x192
+mkdir -p app/src/main/res/mipmap-anydpi-v26
 
-# Root Gradle files
+# Create minimal settings.gradle if missing
 if [ ! -f settings.gradle ]; then
-    cat > settings.gradle <<EOL
-rootProject.name = "ProceduralRPG"
-include(":app")
-EOL
+    echo "rootProject.name = 'ProceduralRPG'" > settings.gradle
+    echo "include ':app'" >> settings.gradle
     echo "Created settings.gradle"
 fi
 
+# Create minimal build.gradle at root if missing
 if [ ! -f build.gradle ]; then
-    cat > build.gradle <<EOL
+    cat <<EOL > build.gradle
+// Top-level build file
 buildscript {
-    repositories { google(); mavenCentral() }
-    dependencies { classpath 'com.android.tools.build:gradle:8.2.0' }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.3.0'
+    }
 }
-allprojects { repositories { google(); mavenCentral() } }
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
 EOL
     echo "Created root build.gradle"
 fi
 
-# App module
-mkdir -p app
+# Create app module build.gradle if missing
 if [ ! -f app/build.gradle ]; then
-    cat > app/build.gradle <<EOL
-plugins {
-    id 'com.android.application'
-    id 'org.jetbrains.kotlin.android' version '1.9.0' apply false
-}
+    cat <<EOL > app/build.gradle
+apply plugin: 'com.android.application'
 
 android {
-    compileSdk 34
+    compileSdkVersion 34
     defaultConfig {
-        applicationId "com.canc.proceduralrpg"
-        minSdk 24
-        targetSdk 34
+        applicationId "com.example.rpg"
+        minSdkVersion 24
+        targetSdkVersion 34
         versionCode 1
         versionName "1.0"
     }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.9.0'
 }
 EOL
     echo "Created app/build.gradle"
 fi
 
-# Gradle wrapper
-if [ ! -f ./gradlew ]; then
+# Generate Gradle wrapper if missing
+if [ ! -f gradlew ]; then
+    echo "Generating Gradle wrapper..."
     gradle wrapper --gradle-version 9.2.1
-    chmod +x ./gradlew
-    echo "Generated Gradle wrapper"
+    chmod +x gradlew
+    echo "Gradle wrapper created"
 fi
 
-echo "=== Gradle setup complete ==="
+echo "Gradle project bootstrap complete."
+echo "You can now run ./gradlew assembleDebug"
