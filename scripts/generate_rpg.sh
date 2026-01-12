@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-echo "=== Procedural RPG Generator (AndroidX + Namespace Correct) ==="
+echo "=== Procedural RPG Generator (Crash-Fixed + Enhanced) ==="
 
 PKG="com.example.rpg"
 SRC="app/src/main"
@@ -55,7 +55,7 @@ allprojects {
 EOF
 
 ########################################
-# app/build.gradle (namespace FIXED)
+# app/build.gradle
 ########################################
 mkdir -p app
 cat > app/build.gradle <<EOF
@@ -98,7 +98,7 @@ cat > "$SRC/AndroidManifest.xml" <<EOF
     <application
         android:label="Infinite RPG"
         android:icon="@mipmap/ic_launcher"
-        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+        android:theme="@style/Theme.App">
 
         <activity
             android:name=".MainActivity"
@@ -116,12 +116,11 @@ cat > "$SRC/AndroidManifest.xml" <<EOF
 EOF
 
 ########################################
-# styles.xml
+# styles.xml (proper AppCompat theme)
 ########################################
 cat > "$RES/values/styles.xml" <<EOF
 <resources>
-    <style name="Theme.AppCompat.Light.NoActionBar"
-        parent="Theme.AppCompat.Light.NoActionBar"/>
+    <style name="Theme.App" parent="Theme.AppCompat.Light.NoActionBar"/>
 </resources>
 EOF
 
@@ -141,15 +140,15 @@ cat > "$RES/layout/activity_main.xml" <<EOF
 EOF
 
 ########################################
-# MainActivity.kt
+# MainActivity.kt (AppCompat FIX)
 ########################################
 cat > "$JAVA_DIR/MainActivity.kt" <<EOF
 package $PKG
 
-import android.app.Activity
 import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
 
-class MainActivity : Activity() {
+class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -158,19 +157,23 @@ class MainActivity : Activity() {
 EOF
 
 ########################################
-# GameView.kt (real game loop)
+# GameView.kt (CRASH FIXED + ENHANCED)
 ########################################
 cat > "$JAVA_DIR/GameView.kt" <<EOF
 package $PKG
 
 import android.content.Context
 import android.graphics.*
+import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
 
-class GameView(context: Context) : View(context) {
+class GameView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null
+) : View(context, attrs) {
 
-    private val paint = Paint()
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val tileSize = 96
     private val mapSize = 32
     private val map = Array(mapSize) { IntArray(mapSize) }
@@ -179,6 +182,9 @@ class GameView(context: Context) : View(context) {
     private var playerY = mapSize / 2
 
     init {
+        isFocusable = true
+        isFocusableInTouchMode = true
+
         for (y in 0 until mapSize) {
             for (x in 0 until mapSize) {
                 map[y][x] = if (Math.random() > 0.25) 0 else 1
@@ -192,8 +198,8 @@ class GameView(context: Context) : View(context) {
         for (y in 0 until mapSize) {
             for (x in 0 until mapSize) {
                 paint.color =
-                    if (map[y][x] == 0) Color.rgb(40, 180, 40)
-                    else Color.rgb(20, 100, 20)
+                    if (map[y][x] == 0) Color.rgb(50, 180, 50)
+                    else Color.rgb(20, 110, 20)
 
                 canvas.drawRect(
                     (x * tileSize).toFloat(),
@@ -213,21 +219,22 @@ class GameView(context: Context) : View(context) {
             paint
         )
 
-        invalidate()
+        postInvalidateOnAnimation()
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.action == MotionEvent.ACTION_DOWN) {
             playerX = (event.x / tileSize).toInt().coerceIn(0, mapSize - 1)
             playerY = (event.y / tileSize).toInt().coerceIn(0, mapSize - 1)
+            return true
         }
-        return true
+        return super.onTouchEvent(event)
     }
 }
 EOF
 
 ########################################
-# Launcher icons (procedural, valid)
+# Launcher icons (procedural)
 ########################################
 for size in 48 72 96 144 192; do
   mkdir -p "$RES/mipmap-${size}x${size}"
@@ -257,4 +264,4 @@ fi
 echo "Building debug APK..."
 ./gradlew :app:assembleDebug --no-daemon
 
-echo "=== SUCCESS: REAL RPG APK BUILT ==="
+echo "=== SUCCESS: STABLE PROCEDURAL RPG APK BUILT ==="
