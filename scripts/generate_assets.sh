@@ -9,14 +9,14 @@ RES_DRAWABLE="$SRC/res/drawable"
 mkdir -p "$RES_DRAWABLE"
 
 # ============================
-# Helper function for textured tiles (safe parentheses)
+# Helper function for textured tiles (safe, no parentheses)
 # ============================
 generate_textured_tile() {
     local file="$1"
     local base_color="$2"
     local overlay_color="$3"
 
-    # Base color + subtle overlay
+    # Create base colored tile with subtle overlay
     convert -size 96x96 xc:"$base_color" \
         -fill "$overlay_color" -draw "rectangle 0,0 96,96" \
         -blur 0x1 "$file"
@@ -28,7 +28,7 @@ generate_textured_tile() {
 generate_textured_tile "$RES_DRAWABLE/tile_grass.png" "rgb(60,170,60)" "rgba(80,200,80,0.3)"
 
 # ============================
-# Forest tile (darker green with simple strokes)
+# Forest tile (darker green with subtle tree strokes)
 # ============================
 generate_textured_tile "$RES_DRAWABLE/tile_forest.png" "rgb(30,100,30)" "rgba(50,130,50,0.5)"
 
@@ -41,7 +41,7 @@ convert -size 96x96 xc:rgb(50,120,200) \
     -blur 0x1 "$RES_DRAWABLE/tile_water.png"
 
 # ============================
-# Chest tile (brown box)
+# Chest tile (brown box with gold top)
 # ============================
 convert -size 96x96 xc:rgb(150,75,0) \
     -stroke black -strokewidth 2 \
@@ -50,7 +50,7 @@ convert -size 96x96 xc:rgb(150,75,0) \
     "$RES_DRAWABLE/tile_chest.png"
 
 # ============================
-# Player icon (red with shading)
+# Player icon (red circle with shading)
 # ============================
 convert -size 96x96 xc:none \
     -fill red -draw "circle 48,48 48,24" \
@@ -58,7 +58,7 @@ convert -size 96x96 xc:none \
     "$RES_DRAWABLE/player.png"
 
 # ============================
-# Enemy icon (purple with shading)
+# Enemy icon (purple circle with shading)
 # ============================
 convert -size 96x96 xc:none \
     -fill purple -draw "circle 48,48 48,24" \
