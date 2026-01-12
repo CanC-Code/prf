@@ -9,17 +9,16 @@ RES_DRAWABLE="$SRC/res/drawable"
 mkdir -p "$RES_DRAWABLE"
 
 # ============================
-# Helper function for textured tiles
+# Helper function for textured tiles (safe parentheses)
 # ============================
 generate_textured_tile() {
     local file="$1"
     local base_color="$2"
     local overlay_color="$3"
 
-    # Base color
-    convert -size 96x96 xc:$base_color \
-        \( -size 96x96 canvas:none -fill $overlay_color -draw "stroke none fill $overlay_color path 'M0,10 L5,15 L10,10 L15,20'" \) \
-        -compose overlay -composite \
+    # Base color + subtle overlay
+    convert -size 96x96 xc:"$base_color" \
+        -fill "$overlay_color" -draw "rectangle 0,0 96,96" \
         -blur 0x1 "$file"
 }
 
@@ -29,7 +28,7 @@ generate_textured_tile() {
 generate_textured_tile "$RES_DRAWABLE/tile_grass.png" "rgb(60,170,60)" "rgba(80,200,80,0.3)"
 
 # ============================
-# Forest tile (darker green with "tree" strokes)
+# Forest tile (darker green with simple strokes)
 # ============================
 generate_textured_tile "$RES_DRAWABLE/tile_forest.png" "rgb(30,100,30)" "rgba(50,130,50,0.5)"
 
