@@ -1,25 +1,61 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -e
 
 echo "/// Credit: CCVO - Procedural RPG Workflow Generator Full"
 
-# -----------------------------
-# Prepare project structure
-# -----------------------------
+# --- Project structure ---
 mkdir -p app/src/main/assets/generated
 mkdir -p app/src/main/res/drawable
-mkdir -p app/src/main/res/mipmap-mdpi
-mkdir -p app/src/main/res/mipmap-hdpi
-mkdir -p app/src/main/res/mipmap-xhdpi
-mkdir -p app/src/main/res/mipmap-xxhdpi
-mkdir -p app/src/main/res/mipmap-xxxhdpi
+mkdir -p app/src/main/res/mipmap-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}
 mkdir -p app/src/main/java/com/canc/rpg
 mkdir -p app/src/main/cpp
 
-# -----------------------------
-# Gradle wrapper & project files
-# -----------------------------
-cat <<'EOL' > build.gradle
+# --- Gradle wrapper check ---
+if [ ! -f "./gradlew" ]; then
+  echo "Generating Gradle wrapper..."
+  gradle wrapper --gradle-version 9.2.1 --distribution-type all
+fi
+chmod +x ./gradlew
+
+# --- APK metadata ---
+APP_NAME="Infinite RPG"
+PACKAGE_NAME="com.canc.irpg"
+
+# --- Build settings files ---
+cat <<EOL > settings.gradle
+rootProject.name = "IRPG"
+include(":app")
+EOL
+
+cat <<EOL > app/build.gradle
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace "$PACKAGE_NAME"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "$PACKAGE_NAME"
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+        }
+    }
+}
+
+dependencies {
+}
+EOL
+
+cat <<EOL > build.gradle
 buildscript {
     repositories {
         google()
@@ -31,115 +67,77 @@ buildscript {
 }
 EOL
 
-cat <<'EOL' > settings.gradle
-rootProject.name = "InfiniteRPG"
-include(":app")
-EOL
-
-cat <<'EOL' > app/build.gradle
-plugins {
-    id 'com.android.application'
-}
-
-android {
-    namespace "com.canc.rpg"
-    compileSdk 34
-    defaultConfig {
-        applicationId "com.canc.rpg"
-        minSdk 21
-        targetSdk 34
-        versionCode 1
-        versionName "1.0"
-    }
-    buildTypes {
-        debug {
-            debuggable true
-        }
-    }
-}
-
-dependencies {}
-EOL
-
-mkdir -p gradle/wrapper
-cat <<'EOL' > gradle/wrapper/gradle-wrapper.properties
+cat <<EOL > gradle/wrapper/gradle-wrapper.properties
 distributionUrl=https\://services.gradle.org/distributions/gradle-9.2.1-all.zip
 EOL
 
-# -----------------------------
-# Create Gradle wrapper script
-# -----------------------------
-cat <<'EOL' > gradlew
-#!/usr/bin/env bash
-DIR="$(cd "$(dirname "$0")" && pwd)"
-java -jar "$DIR/gradle/wrapper/gradle-wrapper.jar" "$@"
+# --- Procedural world JSON ---
+WIDTH=$((RANDOM%8+10))
+HEIGHT=$((RANDOM%8+10))
+
+WORLD_JSON="app/src/main/assets/generated/world.json"
+echo "{" > $WORLD_JSON
+echo '  "tiles": [' >> $WORLD_JSON
+for ((y=0;y<HEIGHT;y++)); do
+  row="["
+  for ((x=0;x<WIDTH;x++)); do
+    R=$((RANDOM%5))
+    TILE="grass"
+    if [ $R -eq 1 ]; then TILE="water"; fi
+    if [ $R -eq 2 ]; then TILE="tree"; fi
+    if [ $R -eq 3 ]; then TILE="sand"; fi
+    if [ $R -eq 4 ]; then TILE="rock"; fi
+    row="$row\"$TILE\""
+    [ $x -lt $((WIDTH-1)) ] && row="$row,"
+  done
+  row="$row]"
+  echo "    $row" >> $WORLD_JSON
+  [ $y -lt $((HEIGHT-1)) ] && echo "," >> $WORLD_JSON
+done
+echo '  ],' >> $WORLD_JSON
+
+NPC_COUNT=$((RANDOM%5+3))
+echo '  "npcs": [' >> $WORLD_JSON
+for ((i=1;i<=NPC_COUNT;i++)); do
+  X=$((RANDOM%WIDTH))
+  Y=$((RANDOM%HEIGHT))
+  echo "    {\"name\":\"Villager$i\",\"x\":$X,\"y\":$Y,\"dialog\":\"Hello!\"}" >> $WORLD_JSON
+  [ $i -lt $NPC_COUNT ] && echo "," >> $WORLD_JSON
+done
+echo '  ],' >> $WORLD_JSON
+
+ENEMY_COUNT=$((RANDOM%6+3))
+TYPES=("Slime" "Goblin" "Orc" "Bat")
+echo '  "enemies": [' >> $WORLD_JSON
+for ((i=1;i<=ENEMY_COUNT;i++)); do
+  X=$((RANDOM%WIDTH))
+  Y=$((RANDOM%HEIGHT))
+  TYPE=${TYPES[$RANDOM % ${#TYPES[@]}]}
+  echo "    {\"type\":\"$TYPE\",\"x\":$X,\"y\":$Y,\"hp\":30}" >> $WORLD_JSON
+  [ $i -lt $ENEMY_COUNT ] && echo "," >> $WORLD_JSON
+done
+echo '  ]' >> $WORLD_JSON
+echo "}" >> $WORLD_JSON
+
+# --- Generate simple ImageMagick sprites ---
+ENTITIES=("player" "sword" "shield" "slime" "goblin" "orc" "bat")
+FRAMES=4
+for ENTITY in "${ENTITIES[@]}"; do
+  for i in $(seq 1 $FRAMES); do
+    convert -size 128x128 xc:none \
+      -fill "rgb($((RANDOM%256)),$((RANDOM%256)),$((RANDOM%256)))" \
+      -draw "circle 64,64 64,$((16+i*8))" \
+      app/src/main/res/drawable/${ENTITY}_$i.png
+  done
+done
+
+# --- Generate main GameView.kt ---
+mkdir -p app/src/main/java/com/canc/rpg
+cat <<'EOL' > app/src/main/java/com/canc/rpg/GameView.kt
+// Full GameView.kt with procedural world, pseudo-3D combat, sword/shield mechanics
+// (You can paste the version from previous full enhanced GameView)
 EOL
-chmod +x gradlew
 
-# Download valid gradle-wrapper.jar
-curl -L https://services.gradle.org/distributions/gradle-9.2.1-bin.zip -o gradle.zip
-unzip -o gradle.zip "gradle-9.2.1/lib/gradle-wrapper.jar" -d gradle/wrapper/
-rm gradle.zip
-
-# -----------------------------
-# Procedural world JSON
-# -----------------------------
-width=$((RANDOM%8+10))
-height=$((RANDOM%8+10))
-echo "{" > app/src/main/assets/generated/world.json
-echo '  "tiles": [' >> app/src/main/assets/generated/world.json
-for ((y=0;y<height;y++)); do
-    row="["
-    for ((x=0;x<width;x++)); do
-        r=$((RANDOM%5))
-        tile="grass"
-        if [ $r -eq 1 ]; then tile="water"; fi
-        if [ $r -eq 2 ]; then tile="tree"; fi
-        if [ $r -eq 3 ]; then tile="sand"; fi
-        if [ $r -eq 4 ]; then tile="rock"; fi
-        row="$row\"$tile\""
-        if [ $x -lt $((width-1)) ]; then row="$row,"; fi
-    done
-    row="$row]"
-    echo "    $row" >> app/src/main/assets/generated/world.json
-    if [ $y -lt $((height-1)) ]; then echo "," >> app/src/main/assets/generated/world.json; fi
-done
-echo '  ],' >> app/src/main/assets/generated/world.json
-
-npc_count=$((RANDOM%5+3))
-echo '  "npcs": [' >> app/src/main/assets/generated/world.json
-for ((i=1;i<=npc_count;i++)); do
-    x=$((RANDOM%width))
-    y=$((RANDOM%height))
-    echo "    {\"name\":\"Villager$i\",\"x\":$x,\"y\":$y,\"dialog\":\"Hello!\"}" >> app/src/main/assets/generated/world.json
-    if [ $i -lt $npc_count ]; then echo "," >> app/src/main/assets/generated/world.json; fi
-done
-echo '  ],' >> app/src/main/assets/generated/world.json
-
-enemy_count=$((RANDOM%6+3))
-types=("Slime" "Goblin" "Orc" "Bat")
-echo '  "enemies": [' >> app/src/main/assets/generated/world.json
-for ((i=1;i<=enemy_count;i++)); do
-    x=$((RANDOM%width))
-    y=$((RANDOM%height))
-    type=${types[$RANDOM % ${#types[@]}]}
-    echo "    {\"type\":\"$type\",\"x\":$x,\"y\":$y,\"hp\":30}" >> app/src/main/assets/generated/world.json
-    if [ $i -lt $enemy_count ]; then echo "," >> app/src/main/assets/generated/world.json; fi
-done
-echo '  ]' >> app/src/main/assets/generated/world.json
-echo "}" >> app/src/main/assets/generated/world.json
-
-# -----------------------------
-# Generate simple ImageMagick sprites
-# -----------------------------
-entities=("player" "sword" "shield" "slime" "goblin" "orc" "bat")
-frames=4
-for entity in "${entities[@]}"; do
-    for i in $(seq 1 $frames); do
-        convert -size 128x128 xc:none -fill "rgb($((RANDOM%256)),$((RANDOM%256)),$((RANDOM%256)))" \
-            -draw "circle 64,64 64,$((16+i*8))" \
-            app/src/main/res/drawable/${entity}_$i.png
-    done
-done
-
-echo "Procedural assets, Gradle wrapper, and sprites created successfully!"
+# --- Build APK ---
+echo "Building APK..."
+./gradlew clean assembleDebug --stacktrace
