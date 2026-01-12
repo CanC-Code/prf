@@ -12,6 +12,9 @@ bash scripts/generate_project.sh
 # Populate procedural RPG game content (GameView, etc.)
 bash scripts/populate_game.sh
 
+# Generate image assets (tiles, player, icons)
+bash scripts/generate_assets.sh
+
 # Ensure gradlew is executable
 chmod +x ./gradlew
 
