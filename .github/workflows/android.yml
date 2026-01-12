@@ -1,10 +1,10 @@
-name: Procedural RPG APK Build
+name: Infinite RPG Build
 
 on:
   workflow_dispatch:  # strictly manual trigger
 
 jobs:
-  build-rpg-apk:
+  generate-and-build:
     runs-on: ubuntu-latest
     env:
       JAVA_HOME: /usr/lib/jvm/java-17-openjdk
@@ -26,17 +26,20 @@ jobs:
           api-level: 34
           build-tools: 34.0.0
 
-      - name: Install ImageMagick and jq
-        run: sudo apt-get update && sudo apt-get install -y imagemagick jq
+      - name: Install ImageMagick
+        run: sudo apt-get update && sudo apt-get install -y imagemagick
 
-      - name: Run RPG generator
+      - name: Generate RPG project
         run: bash scripts/generate_rpg.sh
 
-      - name: Build APK
+      - name: Ensure Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Build debug APK
         run: ./gradlew clean assembleDebug --stacktrace
 
-      - name: Upload debug APK artifact
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: procedural-rpg-debug.apk
+          name: infinite-rpg-debug.apk
           path: app/build/outputs/apk/debug/app-debug.apk
