@@ -1,13 +1,12 @@
 name: Procedural Infinite RPG APK Build
 
 on:
-  workflow_dispatch: # strictly manual trigger
+  workflow_dispatch: # manual trigger
 
 jobs:
   build-apk:
     runs-on: ubuntu-latest
     env:
-      JAVA_HOME: /usr/lib/jvm/java-17-openjdk
       ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
 
     steps:
@@ -29,8 +28,21 @@ jobs:
       - name: Install ImageMagick
         run: sudo apt-get update && sudo apt-get install -y imagemagick
 
+      - name: Ensure Gradle wrapper
+        run: |
+          if [ ! -f ./gradlew ]; then
+            echo "Gradle wrapper not found — generating..."
+            gradle wrapper --gradle-version 9.2.1
+            chmod +x ./gradlew
+          else
+            echo "Gradle wrapper exists."
+          fi
+
       - name: Run RPG generator script
         run: bash scripts/generate_rpg.sh
+
+      - name: Build APK (just in case)
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
