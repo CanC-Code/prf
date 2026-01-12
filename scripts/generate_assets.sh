@@ -9,33 +9,21 @@ RES_DRAWABLE="$SRC/res/drawable"
 mkdir -p "$RES_DRAWABLE"
 
 # ============================
-# Helper function for textured tiles
-# ============================
-generate_textured_tile() {
-    local file="$1"
-    local base_color="$2"
-    local overlay_color="$3"
-
-    # Base color with subtle overlay for texture
-    convert -size 96x96 xc:"$base_color" \
-        -fill "$overlay_color" \
-        -draw "rectangle 0,0 96,96" \
-        -blur 0x1 \
-        "$file"
-}
-
-# ============================
 # Grass tile (green with subtle highlights)
 # ============================
-generate_textured_tile "$RES_DRAWABLE/tile_grass.png" "rgb(60,170,60)" "rgba(80,200,80,0.3)"
+convert -size 96x96 xc:"rgb(60,170,60)" \
+    -fill "rgba(80,200,80,0.3)" -draw "rectangle 0,0 96,96" \
+    -blur 0x1 "$RES_DRAWABLE/tile_grass.png"
 
 # ============================
-# Forest tile (darker green with tree overlay)
+# Forest tile (darker green with simple overlay)
 # ============================
-generate_textured_tile "$RES_DRAWABLE/tile_forest.png" "rgb(30,100,30)" "rgba(50,130,50,0.5)"
+convert -size 96x96 xc:"rgb(30,100,30)" \
+    -fill "rgba(50,130,50,0.5)" -draw "rectangle 0,0 96,96" \
+    -blur 0x1 "$RES_DRAWABLE/tile_forest.png"
 
 # ============================
-# Water tile (blue with simple wave pattern)
+# Water tile (blue with simple wave lines)
 # ============================
 convert -size 96x96 xc:rgb(50,120,200) \
     -stroke white -strokewidth 2 \
