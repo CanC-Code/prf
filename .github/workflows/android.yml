@@ -1,10 +1,10 @@
 name: Procedural RPG APK Build
 
 on:
-  workflow_dispatch: # manual trigger only
+  workflow_dispatch:  # strictly manual trigger
 
 jobs:
-  build:
+  build-rpg-apk:
     runs-on: ubuntu-latest
     env:
       JAVA_HOME: /usr/lib/jvm/java-17-openjdk
@@ -29,10 +29,10 @@ jobs:
       - name: Install ImageMagick and jq
         run: sudo apt-get update && sudo apt-get install -y imagemagick jq
 
-      - name: Run procedural RPG generator
+      - name: Run RPG generator
         run: bash scripts/generate_rpg.sh
 
-      - name: Build debug APK
+      - name: Build APK
         run: ./gradlew clean assembleDebug --stacktrace
 
       - name: Upload debug APK artifact
