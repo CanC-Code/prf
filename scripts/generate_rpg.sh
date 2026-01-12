@@ -50,14 +50,42 @@ include(":app")' > settings.gradle
 
 echo 'org.gradle.jvmargs=-Xmx1536m' > gradle.properties
 
-# 3️⃣ Generate Gradle wrapper
+# 3️⃣ Generate AndroidManifest.xml
+cat <<EOL > app/src/main/AndroidManifest.xml
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.canc.rpg">
+
+    <application
+        android:label="Infinite RPG"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:allowBackup="true"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+        <activity android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
+EOL
+
+# 4️⃣ Generate default launcher icons
+for size in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+    convert -size 48x48 xc:blue -fill yellow -draw "circle 24,24 24,4" app/src/main/res/mipmap-$size/ic_launcher.png
+    convert -size 48x48 xc:green -fill red -draw "circle 24,24 24,4" app/src/main/res/mipmap-$size/ic_launcher_round.png
+done
+
+# 5️⃣ Generate Gradle wrapper
 echo "Generating Gradle wrapper..."
 gradle wrapper --gradle-version 9.2.1
-
-# Make wrapper executable
 chmod +x ./gradlew
 
-# 4️⃣ Generate procedural world
+# 6️⃣ Generate procedural world
 width=$((RANDOM%8+10))
 height=$((RANDOM%8+10))
 world_file=app/src/main/assets/generated/world.json
@@ -107,7 +135,7 @@ done
 echo '  ]' >> $world_file
 echo "}" >> $world_file
 
-# 5️⃣ Generate sprites using ImageMagick
+# 7️⃣ Generate sprites using ImageMagick
 entities=("player" "sword" "shield" "slime" "goblin" "orc" "bat")
 frames=4
 for entity in "${entities[@]}"; do
@@ -117,7 +145,7 @@ for entity in "${entities[@]}"; do
     done
 done
 
-# 6️⃣ Build APK
+# 8️⃣ Build APK
 echo "Building debug APK..."
 ./gradlew clean assembleDebug --stacktrace
 
