@@ -1,24 +1,38 @@
 #!/usr/bin/env bash
 set -e
 
-echo "=== Populating Procedural RPG Game Content ==="
+echo "=== Populating Procedural RPG Game Content with Assets ==="
 
 PKG="com.example.rpg"
 SRC="app/src/main"
 JAVA_DIR="$SRC/java/com/example/rpg"
+RES_DRAWABLE="$SRC/res/drawable"
 
 mkdir -p "$JAVA_DIR"
+mkdir -p "$RES_DRAWABLE"
 
 ########################################
-# GameView.kt
+# Copy / generate sample PNG assets
+########################################
+# Grass tile
+convert -size 96x96 xc:green "$RES_DRAWABLE/tile_grass.png"
+
+# Forest tile
+convert -size 96x96 xc:#1E641E "$RES_DRAWABLE/tile_forest.png"
+
+# Player icon
+convert -size 96x96 xc:none -fill red -draw "circle 48,48 48,24" "$RES_DRAWABLE/player.png"
+
+########################################
+# GameView.kt with bitmap rendering
 ########################################
 cat > "$JAVA_DIR/GameView.kt" <<EOF
 package $PKG
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
@@ -29,14 +43,16 @@ class GameView @JvmOverloads constructor(
     attrs: AttributeSet? = null
 ) : View(context, attrs) {
 
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-
     private val tileSizePx = 96f
     private val mapSize = 24
     private val map = Array(mapSize) { IntArray(mapSize) }
 
     private var playerX = mapSize / 2
     private var playerY = mapSize / 2
+
+    private val grassBitmap: Bitmap = BitmapFactory.decodeResource(resources, R.drawable.tile_grass)
+    private val forestBitmap: Bitmap = BitmapFactory.decodeResource(resources, R.drawable.tile_forest)
+    private val playerBitmap: Bitmap = BitmapFactory.decodeResource(resources, R.drawable.player)
 
     init {
         generateMap()
@@ -56,26 +72,16 @@ class GameView @JvmOverloads constructor(
 
         for (y in 0 until mapSize) {
             for (x in 0 until mapSize) {
-                paint.color =
-                    if (map[y][x] == 0) Color.rgb(60, 170, 60)
-                    else Color.rgb(30, 100, 30)
-
-                canvas.drawRect(
-                    x * tileSizePx,
-                    y * tileSizePx,
-                    (x + 1) * tileSizePx,
-                    (y + 1) * tileSizePx,
-                    paint
-                )
+                val bmp = if (map[y][x] == 0) grassBitmap else forestBitmap
+                canvas.drawBitmap(bmp, x * tileSizePx, y * tileSizePx, null)
             }
         }
 
-        paint.color = Color.RED
-        canvas.drawCircle(
-            (playerX + 0.5f) * tileSizePx,
-            (playerY + 0.5f) * tileSizePx,
-            tileSizePx * 0.35f,
-            paint
+        canvas.drawBitmap(
+            playerBitmap,
+            playerX * tileSizePx,
+            playerY * tileSizePx,
+            null
         )
 
         postInvalidateOnAnimation()
@@ -83,10 +89,8 @@ class GameView @JvmOverloads constructor(
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.action == MotionEvent.ACTION_DOWN) {
-            playerX = floor(event.x / tileSizePx).toInt()
-                .coerceIn(0, mapSize - 1)
-            playerY = floor(event.y / tileSizePx).toInt()
-                .coerceIn(0, mapSize - 1)
+            playerX = floor(event.x / tileSizePx).toInt().coerceIn(0, mapSize - 1)
+            playerY = floor(event.y / tileSizePx).toInt().coerceIn(0, mapSize - 1)
             return true
         }
         return false
@@ -95,7 +99,7 @@ class GameView @JvmOverloads constructor(
 EOF
 
 ########################################
-# MainActivity.kt (overwrite with stable attach)
+# MainActivity.kt (overwrite stable attach)
 ########################################
 cat > "$JAVA_DIR/MainActivity.kt" <<EOF
 package $PKG
@@ -117,4 +121,4 @@ class MainActivity : AppCompatActivity() {
 }
 EOF
 
-echo "=== Procedural Game Content Installed ==="
+echo "=== Procedural Game Content with Assets Installed ==="
