@@ -1,10 +1,10 @@
-name: Infinite RPG Build
+name: InfiniteRPG Build
 
 on:
-  workflow_dispatch:  # strictly manual trigger
+  workflow_dispatch:  # manual trigger
 
 jobs:
-  generate-and-build:
+  build:
     runs-on: ubuntu-latest
     env:
       JAVA_HOME: /usr/lib/jvm/java-17-openjdk
@@ -12,7 +12,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -26,14 +26,11 @@ jobs:
           api-level: 34
           build-tools: 34.0.0
 
-      - name: Install ImageMagick
-        run: sudo apt-get update && sudo apt-get install -y imagemagick
+      - name: Install ImageMagick and jq
+        run: sudo apt-get update && sudo apt-get install -y imagemagick jq unzip curl
 
-      - name: Generate RPG project
+      - name: Run procedural RPG generation
         run: bash scripts/generate_rpg.sh
-
-      - name: Ensure Gradle wrapper executable
-        run: chmod +x gradlew
 
       - name: Build debug APK
         run: ./gradlew clean assembleDebug --stacktrace
