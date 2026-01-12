@@ -3,6 +3,32 @@ set -e
 
 echo "/// Credit: CCVO - Procedural RPG Workflow Generator Full"
 
+# 0️⃣ Generate AndroidManifest.xml
+mkdir -p app/src/main
+cat <<'EOL' > app/src/main/AndroidManifest.xml
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.canc.rpg">
+
+    <application
+        android:allowBackup="true"
+        android:label="InfiniteRPG"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+        <activity android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
+EOL
+
 # 1️⃣ Create project structure
 mkdir -p app/src/main/{assets/generated,res/drawable,res/mipmap-mdpi,res/mipmap-hdpi,res/mipmap-xhdpi,res/mipmap-xxhdpi,res/mipmap-xxxhdpi,java/com/canc/rpg,cpp}
 mkdir -p gradle/wrapper
