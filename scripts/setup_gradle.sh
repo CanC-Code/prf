@@ -12,16 +12,25 @@ mkdir -p app/src/main/res/mipmap-144x144
 mkdir -p app/src/main/res/mipmap-192x192
 mkdir -p app/src/main/res/mipmap-anydpi-v26
 
-# Create minimal settings.gradle if missing
+# gradle.properties (AndroidX REQUIRED)
+if [ ! -f gradle.properties ]; then
+cat <<EOF > gradle.properties
+android.useAndroidX=true
+android.enableJetifier=true
+EOF
+    echo "Created gradle.properties with AndroidX enabled"
+fi
+
+# settings.gradle
 if [ ! -f settings.gradle ]; then
     echo "rootProject.name = 'ProceduralRPG'" > settings.gradle
     echo "include ':app'" >> settings.gradle
     echo "Created settings.gradle"
 fi
 
-# Create minimal build.gradle at root if missing
+# Root build.gradle
 if [ ! -f build.gradle ]; then
-    cat <<EOL > build.gradle
+cat <<EOL > build.gradle
 // Top-level build file
 buildscript {
     repositories {
@@ -43,13 +52,13 @@ EOL
     echo "Created root build.gradle"
 fi
 
-# Create app module build.gradle if missing
+# App module build.gradle
 if [ ! -f app/build.gradle ]; then
-    cat <<EOL > app/build.gradle
+cat <<EOL > app/build.gradle
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.example.rpg"   // <- REQUIRED for AGP 8+
+    namespace "com.example.rpg"
     compileSdkVersion 34
     defaultConfig {
         applicationId "com.example.rpg"
@@ -74,7 +83,7 @@ EOL
     echo "Created app/build.gradle with namespace"
 fi
 
-# Generate Gradle wrapper if missing
+# Gradle wrapper
 if [ ! -f gradlew ]; then
     echo "Generating Gradle wrapper..."
     gradle wrapper --gradle-version 9.2.1
@@ -83,4 +92,4 @@ if [ ! -f gradlew ]; then
 fi
 
 echo "Gradle project bootstrap complete."
-echo "You can now run ./gradlew assembleDebug"
+echo "You can now run ./gradlew :app:assembleDebug"
