@@ -31,7 +31,7 @@ jobs:
       - name: Bootstrap Gradle project
         run: |
           echo "Ensuring minimal Gradle project..."
-          bash scripts/bootstrap_gradle.sh
+          bash scripts/setup_gradle.sh
 
       - name: Run RPG generator script
         run: bash scripts/generate_rpg.sh
