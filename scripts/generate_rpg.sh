@@ -81,7 +81,7 @@ repositories {
 }
 
 dependencies {
-    implementation "androidx.appcompat:appcompat:1.6.1"
+    implementation 'androidx.appcompat:appcompat:1.6.1'
 }
 EOL
 
@@ -99,7 +99,13 @@ EOL
 
 echo 'rootProject.name = "InfiniteRPG"
 include(":app")' > settings.gradle
-echo 'org.gradle.jvmargs=-Xmx1536m' > gradle.properties
+
+# 4️⃣a Generate gradle.properties with AndroidX enabled
+cat <<'EOL' > gradle.properties
+org.gradle.jvmargs=-Xmx1536m
+android.useAndroidX=true
+android.enableJetifier=true
+EOL
 
 # 5️⃣ Generate Gradle wrapper
 echo "Generating Gradle wrapper..."
@@ -165,29 +171,9 @@ done
 # 8️⃣ Generate Java classes
 mkdir -p app/src/main/java/com/canc/rpg
 
-# Tile.java
-cat <<'EOL' > app/src/main/java/com/canc/rpg/Tile.java
-package com.canc.rpg;
-import android.graphics.Bitmap;
-
-public class Tile {
-    public String type;
-    public Bitmap sprite;
-    public boolean walkable;
-
-    public Tile(String type, Bitmap sprite) {
-        this.type = type;
-        this.sprite = sprite;
-        this.walkable = !type.equals("water") && !type.equals("tree") && !type.equals("rock");
-    }
-}
-EOL
-
-# Player.java
 cat <<'EOL' > app/src/main/java/com/canc/rpg/Player.java
 package com.canc.rpg;
 import android.graphics.Bitmap;
-
 public class Player {
     public int x, y;
     public Bitmap sprite;
@@ -195,11 +181,9 @@ public class Player {
 }
 EOL
 
-# Entity.java
 cat <<'EOL' > app/src/main/java/com/canc/rpg/Entity.java
 package com.canc.rpg;
 import android.graphics.Bitmap;
-
 public class Entity {
     public int x, y;
     public Bitmap sprite;
@@ -207,162 +191,35 @@ public class Entity {
 }
 EOL
 
-# GameView.java
-cat <<'EOL' > app/src/main/java/com/canc/rpg/GameView.java
-package com.canc.rpg;
-
-import android.content.Context;
-import android.graphics.*;
-import android.view.MotionEvent;
-import android.view.View;
-import org.json.JSONArray;
-import org.json.JSONObject;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
-
-public class GameView extends View {
-
-    private Tile[][] tiles;
-    private int tileSize = 128;
-    private int width, height;
-
-    private Player player;
-    private List<Entity> npcs = new ArrayList<>();
-    private List<Entity> enemies = new ArrayList<>();
-
-    private float touchStartX, touchStartY;
-
-    public GameView(Context context) {
-        super(context);
-        loadWorld();
-    }
-
-    private void loadWorld() {
-        try {
-            InputStream is = getContext().getAssets().open("generated/world.json");
-            int size = is.available();
-            byte[] buffer = new byte[size];
-            is.read(buffer);
-            is.close();
-            String jsonString = new String(buffer);
-
-            JSONObject world = new JSONObject(jsonString);
-            JSONArray tilesArray = world.getJSONArray("tiles");
-
-            height = tilesArray.length();
-            width = tilesArray.getJSONArray(0).length();
-            tiles = new Tile[height][width];
-
-            for (int y = 0; y < height; y++) {
-                JSONArray row = tilesArray.getJSONArray(y);
-                for (int x = 0; x < width; x++) {
-                    String type = row.getString(x);
-                    Bitmap bmp = loadBitmap(type);
-                    tiles[y][x] = new Tile(type, bmp);
-                }
-            }
-
-            JSONArray npcsArray = world.getJSONArray("npcs");
-            for (int i = 0; i < npcsArray.length(); i++) {
-                JSONObject npcObj = npcsArray.getJSONObject(i);
-                Bitmap bmp = loadBitmap("player");
-                npcs.add(new Entity(npcObj.getInt("x"), npcObj.getInt("y"), bmp));
-            }
-
-            JSONArray enemiesArray = world.getJSONArray("enemies");
-            for (int i = 0; i < enemiesArray.length(); i++) {
-                JSONObject eObj = enemiesArray.getJSONObject(i);
-                Bitmap bmp = loadBitmap(eObj.getString("type").toLowerCase());
-                enemies.add(new Entity(eObj.getInt("x"), eObj.getInt("y"), bmp));
-            }
-
-            Bitmap playerBmp = loadBitmap("player");
-            player = new Player(0, 0, playerBmp);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private Bitmap loadBitmap(String name) {
-        try {
-            int resId = getResources().getIdentifier(name + "_1", "drawable", getContext().getPackageName());
-            return BitmapFactory.decodeResource(getResources(), resId);
-        } catch (Exception e) {
-            return Bitmap.createBitmap(tileSize, tileSize, Bitmap.Config.ARGB_8888);
-        }
-    }
-
-    @Override
-    protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                Tile t = tiles[y][x];
-                canvas.drawBitmap(t.sprite, x * tileSize, y * tileSize, null);
-            }
-        }
-
-        for (Entity npc : npcs) {
-            canvas.drawBitmap(npc.sprite, npc.x * tileSize, npc.y * tileSize, null);
-        }
-
-        for (Entity e : enemies) {
-            canvas.drawBitmap(e.sprite, e.x * tileSize, e.y * tileSize, null);
-        }
-
-        canvas.drawBitmap(player.sprite, player.x * tileSize, player.y * tileSize, null);
-    }
-
-    private boolean canMove(int x, int y) {
-        if (x < 0 || y < 0 || x >= width || y >= height) return false;
-        return tiles[y][x].walkable;
-    }
-
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        switch (event.getAction()) {
-            case MotionEvent.ACTION_DOWN:
-                touchStartX = event.getX();
-                touchStartY = event.getY();
-                break;
-            case MotionEvent.ACTION_UP:
-                float dx = event.getX() - touchStartX;
-                float dy = event.getY() - touchStartY;
-                int moveX = 0, moveY = 0;
-                if (Math.abs(dx) > Math.abs(dy)) {
-                    moveX = dx > 0 ? 1 : -1;
-                } else {
-                    moveY = dy > 0 ? 1 : -1;
-                }
-
-                if (canMove(player.x + moveX, player.y + moveY)) {
-                    player.x += moveX;
-                    player.y += moveY;
-                    invalidate();
-                }
-                break;
-        }
-        return true;
-    }
-}
-EOL
-
-# MainActivity.java
 cat <<'EOL' > app/src/main/java/com/canc/rpg/MainActivity.java
 package com.canc.rpg;
-
 import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
-
 public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         GameView gameView = new GameView(this);
         setContentView(gameView);
+    }
+}
+EOL
+
+# 9️⃣ Generate GameView.java (placeholder)
+cat <<'EOL' > app/src/main/java/com/canc/rpg/GameView.java
+package com.canc.rpg;
+import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.view.View;
+
+public class GameView extends View {
+    Paint paint = new Paint();
+    public GameView(Context context){ super(context); }
+    @Override
+    protected void onDraw(Canvas canvas){
+        super.onDraw(canvas);
+        canvas.drawColor(0xFFAAAAAA); // Placeholder gray background
     }
 }
 EOL
