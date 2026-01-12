@@ -95,15 +95,26 @@ class GameView @JvmOverloads constructor(
 EOF
 
 ########################################
-# Patch MainActivity.kt to attach GameView
+# MainActivity.kt (overwrite with stable attach)
 ########################################
-sed -i '/class MainActivity/,/}/{
-/onCreate/a\
-\
-    override fun onResume() {\
-        super.onResume()\
-        setContentView(GameView(this))\
+cat > "$JAVA_DIR/MainActivity.kt" <<EOF
+package $PKG
+
+import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
+
+class MainActivity : AppCompatActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
     }
-}' "$JAVA_DIR/MainActivity.kt"
+
+    override fun onResume() {
+        super.onResume()
+        setContentView(GameView(this))
+    }
+}
+EOF
 
 echo "=== Procedural Game Content Installed ==="
