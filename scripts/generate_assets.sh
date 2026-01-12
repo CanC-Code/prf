@@ -1,82 +1,69 @@
 #!/usr/bin/env bash
 set -e
 
-echo "=== Generating Procedural RPG Assets ==="
+echo "=== Generating Dynamic RPG Assets ==="
 
-############################
-# Config
-############################
-APP_RES="app/src/main/res"
-FONT="/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+SRC="app/src/main"
+RES_DRAWABLE="$SRC/res/drawable"
 
-# Colors
-ICON_COLOR="#FF5722"
-ICON_TEXT="RPG"
+mkdir -p "$RES_DRAWABLE"
 
-GRASS_COLOR="#3CAA3C"
-FOREST_COLOR="#1E6432"
-WATER_COLOR="#3399FF"
-PLAYER_COLOR="#FF0000"
-BUTTON_COLOR="#333333"
-BUTTON_TEXT_COLOR="#FFFFFF"
+# ============================
+# Helper function for textured tiles
+# ============================
+generate_textured_tile() {
+    local file="$1"
+    local base_color="$2"
+    local overlay_color="$3"
 
-############################
-# Launcher Icons
-############################
-echo "--- Generating launcher icons ---"
-for size in 48 72 96 144 192; do
-    ICON_PATH="$APP_RES/mipmap-${size}x${size}/ic_launcher.png"
-    mkdir -p "$(dirname "$ICON_PATH")"
-    
-    convert -size ${size}x${size} canvas:${ICON_COLOR} \
-        -gravity center -pointsize $((size/3)) -fill white -font "$FONT" -annotate 0 "$ICON_TEXT" \
-        "$ICON_PATH"
-done
+    # Base color
+    convert -size 96x96 xc:$base_color \
+        \( -size 96x96 canvas:none -fill $overlay_color -draw "stroke none fill $overlay_color path 'M0,10 L5,15 L10,10 L15,20'" \) \
+        -compose overlay -composite \
+        -blur 0x1 "$file"
+}
 
-# Vector fallback
-mkdir -p "$APP_RES/mipmap-anydpi-v26"
-cat > "$APP_RES/mipmap-anydpi-v26/ic_launcher.xml" <<EOF
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="192dp"
-    android:height="192dp"
-    android:viewportWidth="192"
-    android:viewportHeight="192">
-    <path android:fillColor="${ICON_COLOR}" android:pathData="M0,0h192v192h-192z"/>
-</vector>
-EOF
+# ============================
+# Grass tile (green with subtle highlights)
+# ============================
+generate_textured_tile "$RES_DRAWABLE/tile_grass.png" "rgb(60,170,60)" "rgba(80,200,80,0.3)"
 
-############################
-# Procedural Tiles
-############################
-echo "--- Generating map tiles ---"
-TILE_DIR="$APP_RES/drawable"
-mkdir -p "$TILE_DIR"
+# ============================
+# Forest tile (darker green with "tree" strokes)
+# ============================
+generate_textured_tile "$RES_DRAWABLE/tile_forest.png" "rgb(30,100,30)" "rgba(50,130,50,0.5)"
 
-# Grass
-convert -size 96x96 canvas:"$GRASS_COLOR" "$TILE_DIR/tile_grass.png"
+# ============================
+# Water tile (blue waves)
+# ============================
+convert -size 96x96 xc:rgb(50,120,200) \
+    -stroke white -strokewidth 2 \
+    -draw "path 'M0,48 Q24,32 48,48 T96,48'" \
+    -blur 0x1 "$RES_DRAWABLE/tile_water.png"
 
-# Forest
-convert -size 96x96 canvas:"$FOREST_COLOR" "$TILE_DIR/tile_forest.png"
+# ============================
+# Chest tile (brown box)
+# ============================
+convert -size 96x96 xc:rgb(150,75,0) \
+    -stroke black -strokewidth 2 \
+    -fill rgb(200,150,50) \
+    -draw "rectangle 16,16 80,80" \
+    "$RES_DRAWABLE/tile_chest.png"
 
-# Water
-convert -size 96x96 canvas:"$WATER_COLOR" "$TILE_DIR/tile_water.png"
+# ============================
+# Player icon (red with shading)
+# ============================
+convert -size 96x96 xc:none \
+    -fill red -draw "circle 48,48 48,24" \
+    -shade 120x45 -normalize \
+    "$RES_DRAWABLE/player.png"
 
-############################
-# Player Marker
-############################
-echo "--- Generating player marker ---"
-convert -size 96x96 xc:none -fill "$PLAYER_COLOR" -draw "circle 48,48 48,20" "$TILE_DIR/player_marker.png"
+# ============================
+# Enemy icon (purple with shading)
+# ============================
+convert -size 96x96 xc:none \
+    -fill purple -draw "circle 48,48 48,24" \
+    -shade 120x45 -normalize \
+    "$RES_DRAWABLE/enemy.png"
 
-############################
-# UI Buttons (example: Attack, Defend)
-############################
-echo "--- Generating UI buttons ---"
-mkdir -p "$TILE_DIR/ui_buttons"
-
-for label in "Attack" "Defend" "Item" "Run"; do
-    convert -size 200x60 canvas:"$BUTTON_COLOR" \
-        -gravity center -pointsize 32 -fill "$BUTTON_TEXT_COLOR" -font "$FONT" -annotate 0 "$label" \
-        "$TILE_DIR/ui_buttons/btn_${label,,}.png"
-done
-
-echo "=== Procedural RPG Assets Generation Complete ==="
+echo "=== RPG Assets Generated ==="
