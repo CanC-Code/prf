@@ -1,9 +1,7 @@
-/// Credit: CCVO - Procedural RPG Workflow Generator Enhanced
-
-name: Procedural Full RPG APK Build
+name: Procedural RPG APK Build
 
 on:
-  workflow_dispatch: # strictly manual trigger
+  workflow_dispatch:
 
 jobs:
   generate-and-build:
@@ -31,13 +29,16 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y imagemagick jq
 
-      - name: Run RPG generator
+      - name: Debug repository contents
+        run: ls -R
+
+      - name: Run RPG generator script
         run: bash scripts/generate_rpg.sh
 
       - name: Build debug APK
         run: ./gradlew clean assembleDebug --stacktrace
 
-      - name: Upload debug APK artifact
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: procedural-rpg-debug.apk
