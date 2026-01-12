@@ -1,15 +1,92 @@
 #!/usr/bin/env bash
 set -e
 
-echo "=== Procedural RPG Generator (Fully Functional) ==="
+echo "=== Procedural RPG Generator (AndroidX + Namespace Correct) ==="
 
 PKG="com.example.rpg"
 SRC="app/src/main"
 JAVA_DIR="$SRC/java/com/example/rpg"
 RES="$SRC/res"
 
+########################################
+# Ensure base directories
+########################################
 mkdir -p "$JAVA_DIR"
 mkdir -p "$RES/layout" "$RES/values" "$RES/drawable" "$RES/raw"
+mkdir -p "$RES/mipmap-anydpi-v26"
+
+########################################
+# gradle.properties (AndroidX REQUIRED)
+########################################
+cat > gradle.properties <<EOF
+org.gradle.jvmargs=-Xmx2048m
+android.useAndroidX=true
+android.enableJetifier=true
+EOF
+
+########################################
+# settings.gradle
+########################################
+cat > settings.gradle <<EOF
+rootProject.name = "InfiniteRPG"
+include(":app")
+EOF
+
+########################################
+# Root build.gradle
+########################################
+cat > build.gradle <<EOF
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:8.3.0"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+EOF
+
+########################################
+# app/build.gradle (namespace FIXED)
+########################################
+mkdir -p app
+cat > app/build.gradle <<EOF
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "$PKG"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "$PKG"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+        }
+    }
+}
+
+dependencies {
+    implementation "androidx.appcompat:appcompat:1.6.1"
+    implementation "com.google.android.material:material:1.9.0"
+}
+EOF
 
 ########################################
 # AndroidManifest.xml
@@ -19,15 +96,14 @@ cat > "$SRC/AndroidManifest.xml" <<EOF
     package="$PKG">
 
     <application
-        android:allowBackup="true"
         android:label="Infinite RPG"
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
         <activity
             android:name=".MainActivity"
-            android:screenOrientation="portrait"
-            android:exported="true">
+            android:exported="true"
+            android:screenOrientation="portrait">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -44,7 +120,8 @@ EOF
 ########################################
 cat > "$RES/values/styles.xml" <<EOF
 <resources>
-    <style name="Theme.AppCompat.Light.NoActionBar" parent="Theme.AppCompat.Light.NoActionBar"/>
+    <style name="Theme.AppCompat.Light.NoActionBar"
+        parent="Theme.AppCompat.Light.NoActionBar"/>
 </resources>
 EOF
 
@@ -57,7 +134,6 @@ cat > "$RES/layout/activity_main.xml" <<EOF
     android:layout_height="match_parent">
 
     <com.example.rpg.GameView
-        android:id="@+id/gameView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
 
@@ -65,7 +141,7 @@ cat > "$RES/layout/activity_main.xml" <<EOF
 EOF
 
 ########################################
-# Kotlin: MainActivity
+# MainActivity.kt
 ########################################
 cat > "$JAVA_DIR/MainActivity.kt" <<EOF
 package $PKG
@@ -82,7 +158,7 @@ class MainActivity : Activity() {
 EOF
 
 ########################################
-# Kotlin: GameView (core game loop)
+# GameView.kt (real game loop)
 ########################################
 cat > "$JAVA_DIR/GameView.kt" <<EOF
 package $PKG
@@ -91,26 +167,21 @@ import android.content.Context
 import android.graphics.*
 import android.view.MotionEvent
 import android.view.View
-import kotlin.math.*
 
 class GameView(context: Context) : View(context) {
 
     private val paint = Paint()
     private val tileSize = 96
     private val mapSize = 32
-
     private val map = Array(mapSize) { IntArray(mapSize) }
-    private var playerX = mapSize / 2f
-    private var playerY = mapSize / 2f
+
+    private var playerX = mapSize / 2
+    private var playerY = mapSize / 2
 
     init {
-        generateMap()
-    }
-
-    private fun generateMap() {
         for (y in 0 until mapSize) {
             for (x in 0 until mapSize) {
-                map[y][x] = if (Math.random() > 0.2) 0 else 1
+                map[y][x] = if (Math.random() > 0.25) 0 else 1
             }
         }
     }
@@ -120,12 +191,15 @@ class GameView(context: Context) : View(context) {
 
         for (y in 0 until mapSize) {
             for (x in 0 until mapSize) {
-                paint.color = if (map[y][x] == 0) Color.rgb(40,180,40) else Color.rgb(20,100,20)
+                paint.color =
+                    if (map[y][x] == 0) Color.rgb(40, 180, 40)
+                    else Color.rgb(20, 100, 20)
+
                 canvas.drawRect(
-                    x * tileSize.toFloat(),
-                    y * tileSize.toFloat(),
-                    (x + 1) * tileSize.toFloat(),
-                    (y + 1) * tileSize.toFloat(),
+                    (x * tileSize).toFloat(),
+                    (y * tileSize).toFloat(),
+                    ((x + 1) * tileSize).toFloat(),
+                    ((y + 1) * tileSize).toFloat(),
                     paint
                 )
             }
@@ -133,8 +207,8 @@ class GameView(context: Context) : View(context) {
 
         paint.color = Color.RED
         canvas.drawCircle(
-            playerX * tileSize + tileSize / 2,
-            playerY * tileSize + tileSize / 2,
+            playerX * tileSize + tileSize / 2f,
+            playerY * tileSize + tileSize / 2f,
             tileSize / 3f,
             paint
         )
@@ -144,13 +218,8 @@ class GameView(context: Context) : View(context) {
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.action == MotionEvent.ACTION_DOWN) {
-            val tx = (event.x / tileSize).toInt()
-            val ty = (event.y / tileSize).toInt()
-
-            if (tx in 0 until mapSize && ty in 0 until mapSize) {
-                playerX = tx.toFloat()
-                playerY = ty.toFloat()
-            }
+            playerX = (event.x / tileSize).toInt().coerceIn(0, mapSize - 1)
+            playerY = (event.y / tileSize).toInt().coerceIn(0, mapSize - 1)
         }
         return true
     }
@@ -158,16 +227,15 @@ class GameView(context: Context) : View(context) {
 EOF
 
 ########################################
-# Launcher icon (procedural)
+# Launcher icons (procedural, valid)
 ########################################
 for size in 48 72 96 144 192; do
   mkdir -p "$RES/mipmap-${size}x${size}"
   convert -size ${size}x${size} xc:black \
-    -fill red -draw "circle $((size/2)),$((size/2)) $((size/2)),$((size/8))" \
+    -fill red -draw "circle $((size/2)),$((size/2)) $((size/2)),$((size/6))" \
     "$RES/mipmap-${size}x${size}/ic_launcher.png"
 done
 
-mkdir -p "$RES/mipmap-anydpi-v26"
 cat > "$RES/mipmap-anydpi-v26/ic_launcher.xml" <<EOF
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@android:color/black"/>
@@ -176,9 +244,17 @@ cat > "$RES/mipmap-anydpi-v26/ic_launcher.xml" <<EOF
 EOF
 
 ########################################
+# Ensure Gradle wrapper
+########################################
+if [ ! -f ./gradlew ]; then
+  gradle wrapper --gradle-version 9.2.1
+  chmod +x gradlew
+fi
+
+########################################
 # Build APK
 ########################################
 echo "Building debug APK..."
 ./gradlew :app:assembleDebug --no-daemon
 
-echo "=== RPG APK GENERATED SUCCESSFULLY ==="
+echo "=== SUCCESS: REAL RPG APK BUILT ==="
