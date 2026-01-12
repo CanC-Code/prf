@@ -49,6 +49,7 @@ if [ ! -f app/build.gradle ]; then
 apply plugin: 'com.android.application'
 
 android {
+    namespace "com.example.rpg"   // <- REQUIRED for AGP 8+
     compileSdkVersion 34
     defaultConfig {
         applicationId "com.example.rpg"
@@ -70,7 +71,7 @@ dependencies {
     implementation 'com.google.android.material:material:1.9.0'
 }
 EOL
-    echo "Created app/build.gradle"
+    echo "Created app/build.gradle with namespace"
 fi
 
 # Generate Gradle wrapper if missing
