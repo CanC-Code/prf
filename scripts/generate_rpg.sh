@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-echo "/// Credit: CCVO - Procedural RPG Workflow Generator"
+### Credit: CCVO - Procedural RPG Workflow Generator Enhanced
 
-# --- 1. Create project structure ---
+# --- 0. Prepare project folders ---
 mkdir -p app/src/main/assets/generated
 mkdir -p app/src/main/res/drawable
 mkdir -p app/src/main/res/mipmap-mdpi
@@ -13,10 +13,26 @@ mkdir -p app/src/main/res/mipmap-xxhdpi
 mkdir -p app/src/main/res/mipmap-xxxhdpi
 mkdir -p app/src/main/java/com/canc/rpg
 mkdir -p app/src/main/cpp
-mkdir -p gradle/wrapper
 
-# --- 2. Generate Gradle files ---
-cat > app/build.gradle <<'EOF'
+# --- 1. Generate Gradle wrapper correctly ---
+# Requires Gradle pre-installed in runner
+gradle wrapper --gradle-version 8.2 --distribution-type all
+chmod +x gradlew
+
+# --- 2. Generate Gradle project files ---
+cat <<'EOF' > build.gradle
+buildscript {
+    repositories { google(); mavenCentral() }
+    dependencies { classpath "com.android.tools.build:gradle:8.2.0" }
+}
+EOF
+
+cat <<'EOF' > settings.gradle
+rootProject.name = "ProceduralRPG"
+include(":app")
+EOF
+
+cat <<'EOF' > app/build.gradle
 apply plugin: "com.android.application"
 
 android {
@@ -29,54 +45,18 @@ android {
         versionName "1.0"
     }
     buildTypes {
-        debug {
-            debuggable true
-        }
+        debug { debuggable true }
     }
 }
 
 dependencies {}
 EOF
 
-cat > settings.gradle <<'EOF'
-rootProject.name = "ProceduralRPG"
-include(":app")
+cat <<'EOF' > gradle.properties
+org.gradle.jvmargs=-Xmx1024m
 EOF
 
-cat > build.gradle <<'EOF'
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath "com.android.tools.build:gradle:8.2.0"
-    }
-}
-EOF
-
-cat > gradle/wrapper/gradle-wrapper.properties <<'EOF'
-distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-all.zip
-EOF
-
-# --- 3. Create Gradle wrapper scripts ---
-cat > gradlew <<'EOF'
-#!/usr/bin/env sh
-DIR=$(cd "$(dirname "$0")"; pwd)
-java -jar "$DIR/gradle/wrapper/gradle-wrapper.jar" "$@"
-EOF
-chmod +x gradlew
-
-cat > gradlew.bat <<'EOF'
-@echo off
-set DIR=%~dp0
-java -jar "%DIR%\gradle\wrapper\gradle-wrapper.jar" %*
-EOF
-
-# --- 4. Download gradle-wrapper.jar ---
-curl -sSL -o gradle/wrapper/gradle-wrapper.jar https://services.gradle.org/distributions/gradle-8.2-all.zip
-
-# --- 5. Generate procedural world JSON ---
+# --- 3. Generate procedural world JSON ---
 width=$((RANDOM%8+10))
 height=$((RANDOM%8+10))
 echo "{" > app/src/main/assets/generated/world.json
@@ -86,16 +66,16 @@ for ((y=0;y<height;y++)); do
   for ((x=0;x<width;x++)); do
     r=$((RANDOM%5))
     tile="grass"
-    if [ $r -eq 1 ]; then tile="water"; fi
-    if [ $r -eq 2 ]; then tile="tree"; fi
-    if [ $r -eq 3 ]; then tile="sand"; fi
-    if [ $r -eq 4 ]; then tile="rock"; fi
+    [[ $r -eq 1 ]] && tile="water"
+    [[ $r -eq 2 ]] && tile="tree"
+    [[ $r -eq 3 ]] && tile="sand"
+    [[ $r -eq 4 ]] && tile="rock"
     row="$row\"$tile\""
-    if [ $x -lt $((width-1)) ]; then row="$row,"; fi
+    [[ $x -lt $((width-1)) ]] && row="$row,"
   done
   row="$row]"
   echo "    $row" >> app/src/main/assets/generated/world.json
-  if [ $y -lt $((height-1)) ]; then echo "," >> app/src/main/assets/generated/world.json; fi
+  [[ $y -lt $((height-1)) ]] && echo "," >> app/src/main/assets/generated/world.json
 done
 echo '  ],' >> app/src/main/assets/generated/world.json
 
@@ -105,7 +85,7 @@ for ((i=1;i<=npc_count;i++)); do
   x=$((RANDOM%width))
   y=$((RANDOM%height))
   echo "    {\"name\":\"Villager$i\",\"x\":$x,\"y\":$y,\"dialog\":\"Hello!\"}" >> app/src/main/assets/generated/world.json
-  if [ $i -lt $npc_count ]; then echo "," >> app/src/main/assets/generated/world.json; fi
+  [[ $i -lt $npc_count ]] && echo "," >> app/src/main/assets/generated/world.json
 done
 echo '  ],' >> app/src/main/assets/generated/world.json
 
@@ -117,23 +97,25 @@ for ((i=1;i<=enemy_count;i++)); do
   y=$((RANDOM%height))
   type=${types[$RANDOM % ${#types[@]}]}
   echo "    {\"type\":\"$type\",\"x\":$x,\"y\":$y,\"hp\":30}" >> app/src/main/assets/generated/world.json
-  if [ $i -lt $enemy_count ]; then echo "," >> app/src/main/assets/generated/world.json; fi
+  [[ $i -lt $enemy_count ]] && echo "," >> app/src/main/assets/generated/world.json
 done
 echo '  ]' >> app/src/main/assets/generated/world.json
 echo "}" >> app/src/main/assets/generated/world.json
 
-# --- 6. Generate procedural sprites ---
+# --- 4. Generate animated sprites via ImageMagick ---
 entities=("player" "sword" "shield" "slime" "goblin" "orc" "bat")
 frames=4
 for entity in "${entities[@]}"; do
   for i in $(seq 1 $frames); do
-    convert -size 128x128 xc:none -fill "rgb($((RANDOM%256)),$((RANDOM%256)),$((RANDOM%256)))" \
-      -draw "circle 64,64 64,$((16+i*8))" app/src/main/res/drawable/${entity}_$i.png
+    convert -size 128x128 xc:none \
+      -fill "rgb($((RANDOM%256)),$((RANDOM%256)),$((RANDOM%256)))" \
+      -draw "circle 64,64 64,$((16+i*8))" \
+      app/src/main/res/drawable/${entity}_$i.png
   done
 done
 
-# --- 7. Create minimal GameView ---
-cat > app/src/main/java/com/canc/rpg/GameView.kt <<'EOF'
+# --- 5. Create GameView.kt ---
+cat <<'EOF' > app/src/main/java/com/canc/rpg/GameView.kt
 package com.canc.rpg
 import android.content.Context
 import android.graphics.*
@@ -143,6 +125,7 @@ import android.view.MotionEvent
 import org.json.JSONObject
 import java.io.InputStream
 import kotlin.random.Random
+
 class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback, Runnable {
     private var thread: Thread? = null
     private var running = false
@@ -152,12 +135,12 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     private var playerX = 0
     private var playerY = 0
     private var playerHP = 100
-    private var playerLevel = 1
     private val npcs = mutableListOf<JSONObject>()
     private val enemies = mutableListOf<JSONObject>()
     private var attackCooldown = 0
     private var shieldActive = false
     private var frameCounter = 0
+
     init { holder.addCallback(this); loadWorld() }
     private fun loadWorld() {
         val stream: InputStream = context.assets.open("generated/world.json")
@@ -168,81 +151,65 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         val enemyArray = world.getJSONArray("enemies")
         for(i in 0 until enemyArray.length()){ enemies.add(enemyArray.getJSONObject(i)) }
     }
-    override fun surfaceCreated(holder: SurfaceHolder) { running=true; thread=Thread(this); thread?.start() }
-    override fun surfaceDestroyed(holder: SurfaceHolder) { running=false; thread?.join() }
+
+    override fun surfaceCreated(holder: SurfaceHolder) {
+        running = true
+        thread = Thread(this)
+        thread?.start()
+    }
+    override fun surfaceDestroyed(holder: SurfaceHolder) { running = false; thread?.join() }
+
     override fun run() {
         while(running){
             if(!holder.surface.isValid) continue
             val canvas = holder.lockCanvas()
             canvas.drawColor(Color.BLACK)
-            drawWorld(canvas); drawNPCs(canvas); drawEnemies(canvas); drawPlayer(canvas); drawHUD(canvas)
-            drawEffects(canvas)
+            drawWorld(canvas); drawNPCs(canvas); drawEnemies(canvas); drawPlayer(canvas)
             holder.unlockCanvasAndPost(canvas)
             updateEnemies()
-            frameCounter = (frameCounter+1)%4
             if(attackCooldown>0) attackCooldown--
         }
     }
+
     private fun drawWorld(canvas: Canvas){
         val tiles = world.getJSONArray("tiles")
         for(y in 0 until tiles.length()){
             val row = tiles.getJSONArray(y)
             for(x in 0 until row.length()){
                 val t = row.getString(x)
-                paint.color = when(t){
-                    "grass" -> Color.GREEN
-                    "water" -> Color.BLUE
-                    "tree" -> Color.DKGRAY
-                    "sand" -> Color.YELLOW
-                    "rock" -> Color.LTGRAY
-                    else -> Color.GRAY
-                }
-                canvas.drawRect((x*tileSize).toFloat(), (y*tileSize).toFloat(),
-                    ((x+1)*tileSize).toFloat(), ((y+1)*tileSize).toFloat(), paint)
+                paint.color = when(t){ "grass"->Color.GREEN; "water"->Color.BLUE; "tree"->Color.DKGRAY; "sand"->Color.YELLOW; "rock"->Color.LTGRAY; else->Color.GRAY }
+                canvas.drawRect((x*tileSize).toFloat(),(y*tileSize).toFloat(),((x+1)*tileSize).toFloat(),((y+1)*tileSize).toFloat(), paint)
             }
         }
     }
-    private fun drawPlayer(canvas: Canvas){ paint.color = if(shieldActive) Color.CYAN else Color.YELLOW
-        canvas.drawCircle(playerX*tileSize + tileSize/2f, playerY*tileSize + tileSize/2f, tileSize/2f, paint) }
-    private fun drawNPCs(canvas: Canvas){ paint.color=Color.MAGENTA; for(npc in npcs){
-        val x=npc.getInt("x"); val y=npc.getInt("y"); canvas.drawRect(x*tileSize.toFloat(),y*tileSize.toFloat(),
-        (x+1)*tileSize.toFloat(),(y+1)*tileSize.toFloat(),paint) } }
-    private fun drawEnemies(canvas: Canvas){ paint.color=Color.RED; for(enemy in enemies){
-        val x=enemy.getInt("x"); val y=enemy.getInt("y"); canvas.drawRect(x*tileSize.toFloat(),y*tileSize.toFloat(),
-        (x+1)*tileSize.toFloat(),(y+1)*tileSize.toFloat(),paint) } }
-    private fun drawHUD(canvas: Canvas){ paint.color=Color.WHITE; paint.textSize=40f
-        canvas.drawText("HP: $playerHP Level: $playerLevel",20f,50f,paint) }
-    private fun drawEffects(canvas: Canvas){ if(attackCooldown>0){
-        paint.color=Color.YELLOW; for(enemy in enemies){
-            val x=enemy.getInt("x"); val y=enemy.getInt("y"); canvas.drawCircle(x*tileSize + tileSize/2f, y*tileSize + tileSize/2f, tileSize/3f, paint) } } }
-    private fun updateEnemies(){ for(enemy in enemies){ if(Random.nextBoolean()){
-        val dx=listOf(-1,0,1).random(); val dy=listOf(-1,0,1).random()
-        val newX=(enemy.getInt("x")+dx).coerceIn(0, world.getJSONArray("tiles").getJSONArray(0).length()-1)
-        val newY=(enemy.getInt("y")+dy).coerceIn(0, world.getJSONArray("tiles").length()-1)
-        enemy.put("x",newX); enemy.put("y",newY)
+
+    private fun drawPlayer(canvas: Canvas){
+        paint.color = if(shieldActive) Color.CYAN else Color.YELLOW
+        canvas.drawCircle(playerX*tileSize+tileSize/2f, playerY*tileSize+tileSize/2f, tileSize/2f, paint)
     }
-    if(Math.abs(enemy.getInt("x")-playerX)<=1 && Math.abs(enemy.getInt("y")-playerY)<=1){ if(!shieldActive) playerHP-=1 } } }
+    private fun drawNPCs(canvas: Canvas){ paint.color=Color.MAGENTA; for(npc in npcs){ val x=npc.getInt("x"); val y=npc.getInt("y"); canvas.drawRect(x*tileSize.toFloat(),y*tileSize.toFloat(),(x+1)*tileSize.toFloat(),(y+1)*tileSize.toFloat(),paint) } }
+    private fun drawEnemies(canvas: Canvas){ paint.color=Color.RED; for(enemy in enemies){ val x=enemy.getInt("x"); val y=enemy.getInt("y"); canvas.drawRect(x*tileSize.toFloat(),y*tileSize.toFloat(),(x+1)*tileSize.toFloat(),(y+1)*tileSize.toFloat(),paint) } }
+
+    private fun updateEnemies(){
+        for(enemy in enemies){
+            if(Random.nextBoolean()){
+                val dx=listOf(-1,0,1).random()
+                val dy=listOf(-1,0,1).random()
+                val newX=(enemy.getInt("x")+dx).coerceIn(0, world.getJSONArray("tiles").getJSONArray(0).length()-1)
+                val newY=(enemy.getInt("y")+dy).coerceIn(0, world.getJSONArray("tiles").length()-1)
+                enemy.put("x",newX)
+                enemy.put("y",newY)
+            }
+        }
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if(event.action==MotionEvent.ACTION_DOWN){
             val tx=(event.x/tileSize).toInt(); val ty=(event.y/tileSize).toInt()
             val tile=world.getJSONArray("tiles").getJSONArray(ty).getString(tx)
             if(tile!="tree" && tile!="water"){ playerX=tx; playerY=ty }
-            if(event.x>width-200 && event.y>height-200){ attack() }
-            else if(event.x>width-400 && event.y>height-200){ shield() }
-        } 
+        }
         return true
     }
-    private fun attack(){ if(attackCooldown==0){
-        for(enemy in enemies){ if(Math.abs(enemy.getInt("x")-playerX)<=1 && Math.abs(enemy.getInt("y")-playerY)<=1){
-            val hp=enemy.getInt("hp")-10
-            if(hp<=0) enemies.remove(enemy) else enemy.put("hp",hp)
-            playerLevel++
-            break
-        } }
-        attackCooldown=20
-    } }
-    private fun shield(){ shieldActive=true; Thread{ Thread.sleep(1000); shieldActive=false }.start() }
 }
 EOF
-
-echo "Project generation complete."
