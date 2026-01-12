@@ -1,11 +1,9 @@
-/// Credit: CCVO - Procedural RPG Workflow Generator
+/// Credit: CCVO - Procedural RPG Workflow Generator Enhanced
 
-name: Procedural Full RPG APK Build
+name: Procedural Full RPG APK Build Enhanced
 
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+  workflow_dispatch: # strictly manual trigger
 
 jobs:
   generate-and-build:
@@ -33,7 +31,7 @@ jobs:
       - name: Install ImageMagick and jq
         run: sudo apt-get update && sudo apt-get install -y imagemagick jq
 
-      - name: Prepare project folders
+      - name: Prepare full Android project structure
         run: |
           mkdir -p app/src/main/assets/generated
           mkdir -p app/src/main/res/drawable
@@ -43,21 +41,62 @@ jobs:
           mkdir -p app/src/main/res/mipmap-xxhdpi
           mkdir -p app/src/main/res/mipmap-xxxhdpi
           mkdir -p app/src/main/java/com/canc/rpg
+          mkdir -p app/src/main/cpp
 
-      - name: Generate procedural RPG assets and world
+          # Gradle wrapper and project files
+          echo 'apply plugin: "com.android.application"
+
+android {
+    compileSdkVersion 34
+    defaultConfig {
+        applicationId "com.canc.rpg"
+        minSdkVersion 21
+        targetSdkVersion 34
+        versionCode 1
+        versionName "1.0"
+    }
+    buildTypes {
+        debug {
+            debuggable true
+        }
+    }
+}
+
+dependencies {
+}' > app/build.gradle
+
+          echo 'rootProject.name = "ProceduralRPG"
+include(":app")' > settings.gradle
+
+          echo 'buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:8.2.0"
+    }
+}' > build.gradle
+
+          # Gradle wrapper properties
+          mkdir -p gradle/wrapper
+          echo 'distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-all.zip' > gradle/wrapper/gradle-wrapper.properties
+
+      - name: Generate procedural world JSON (endless chunks)
         run: |
-          # -- player, NPCs, enemies, buttons, launcher icons (as before) --
-          width=$((RANDOM%5+6))
-          height=$((RANDOM%5+6))
+          width=$((RANDOM%8+10))
+          height=$((RANDOM%8+10))
           echo "{" > app/src/main/assets/generated/world.json
           echo '  "tiles": [' >> app/src/main/assets/generated/world.json
           for ((y=0;y<height;y++)); do
             row="["
             for ((x=0;x<width;x++)); do
-              r=$((RANDOM%3))
+              r=$((RANDOM%5))
               tile="grass"
               if [ $r -eq 1 ]; then tile="water"; fi
               if [ $r -eq 2 ]; then tile="tree"; fi
+              if [ $r -eq 3 ]; then tile="sand"; fi
+              if [ $r -eq 4 ]; then tile="rock"; fi
               row="$row\"$tile\""
               if [ $x -lt $((width-1)) ]; then row="$row,"; fi
             done
@@ -67,7 +106,7 @@ jobs:
           done
           echo '  ],' >> app/src/main/assets/generated/world.json
 
-          npc_count=$((RANDOM%5+1))
+          npc_count=$((RANDOM%5+3))
           echo '  "npcs": [' >> app/src/main/assets/generated/world.json
           for ((i=1;i<=npc_count;i++)); do
             x=$((RANDOM%width))
@@ -77,20 +116,31 @@ jobs:
           done
           echo '  ],' >> app/src/main/assets/generated/world.json
 
-          enemy_count=$((RANDOM%5+1))
+          enemy_count=$((RANDOM%6+3))
           types=("Slime" "Goblin" "Orc" "Bat")
           echo '  "enemies": [' >> app/src/main/assets/generated/world.json
           for ((i=1;i<=enemy_count;i++)); do
             x=$((RANDOM%width))
             y=$((RANDOM%height))
             type=${types[$RANDOM % ${#types[@]}]}
-            echo "    {\"type\":\"$type\",\"x\":$x,\"y\":$y,\"hp\":10}" >> app/src/main/assets/generated/world.json
+            echo "    {\"type\":\"$type\",\"x\":$x,\"y\":$y,\"hp\":30}" >> app/src/main/assets/generated/world.json
             if [ $i -lt $enemy_count ]; then echo "," >> app/src/main/assets/generated/world.json; fi
           done
           echo '  ]' >> app/src/main/assets/generated/world.json
           echo "}" >> app/src/main/assets/generated/world.json
 
-      - name: Create minimal RPG engine with A/B and collision
+      - name: Generate animated pseudo-3D sprites
+        run: |
+          mkdir -p app/src/main/res/drawable
+          entities=("player" "sword" "shield" "slime" "goblin" "orc" "bat")
+          frames=4
+          for entity in "${entities[@]}"; do
+            for i in $(seq 1 $frames); do
+              convert -size 128x128 xc:none -fill "rgb($((RANDOM%256)),$((RANDOM%256)),$((RANDOM%256)))" -draw "circle 64,64 64,$((16+i*8))" app/src/main/res/drawable/${entity}_$i.png
+            done
+          done
+
+      - name: Create enhanced GameView with live combat, animations, and effects
         run: |
           cat <<'EOL' > app/src/main/java/com/canc/rpg/GameView.kt
 package com.canc.rpg
@@ -112,8 +162,13 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     private lateinit var world: JSONObject
     private var playerX = 0
     private var playerY = 0
+    private var playerHP = 100
+    private var playerLevel = 1
     private val npcs = mutableListOf<JSONObject>()
     private val enemies = mutableListOf<JSONObject>()
+    private var attackCooldown = 0
+    private var shieldActive = false
+    private var frameCounter = 0
 
     init {
         holder.addCallback(this)
@@ -124,10 +179,8 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         val stream: InputStream = context.assets.open("generated/world.json")
         val json = stream.bufferedReader().use { it.readText() }
         world = JSONObject(json)
-
         val npcArray = world.getJSONArray("npcs")
         for(i in 0 until npcArray.length()){ npcs.add(npcArray.getJSONObject(i)) }
-
         val enemyArray = world.getJSONArray("enemies")
         for(i in 0 until enemyArray.length()){ enemies.add(enemyArray.getJSONObject(i)) }
     }
@@ -152,8 +205,12 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
             drawNPCs(canvas)
             drawEnemies(canvas)
             drawPlayer(canvas)
+            drawHUD(canvas)
+            drawEffects(canvas)
             holder.unlockCanvasAndPost(canvas)
             updateEnemies()
+            frameCounter = (frameCounter+1)%4
+            if(attackCooldown>0) attackCooldown--
         }
     }
 
@@ -167,6 +224,8 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
                     "grass" -> Color.GREEN
                     "water" -> Color.BLUE
                     "tree" -> Color.DKGRAY
+                    "sand" -> Color.YELLOW
+                    "rock" -> Color.LTGRAY
                     else -> Color.GRAY
                 }
                 canvas.drawRect((x*tileSize).toFloat(), (y*tileSize).toFloat(),
@@ -176,7 +235,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     }
 
     private fun drawPlayer(canvas: Canvas){
-        paint.color = Color.YELLOW
+        paint.color = if(shieldActive) Color.CYAN else Color.YELLOW
         canvas.drawCircle(playerX*tileSize + tileSize/2f, playerY*tileSize + tileSize/2f, tileSize/2f, paint)
     }
 
@@ -198,6 +257,24 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         }
     }
 
+    private fun drawHUD(canvas: Canvas){
+        paint.color = Color.WHITE
+        paint.textSize = 40f
+        canvas.drawText("HP: $playerHP Level: $playerLevel", 20f, 50f, paint)
+    }
+
+    private fun drawEffects(canvas: Canvas){
+        // Simple flashing effect when attacking
+        if(attackCooldown>0){
+            paint.color = Color.YELLOW
+            for(enemy in enemies){
+                val x = enemy.getInt("x")
+                val y = enemy.getInt("y")
+                canvas.drawCircle(x*tileSize + tileSize/2f, y*tileSize + tileSize/2f, tileSize/3f, paint)
+            }
+        }
+    }
+
     private fun updateEnemies(){
         for(enemy in enemies){
             if(Random.nextBoolean()){
@@ -207,6 +284,10 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
                 val newY = (enemy.getInt("y")+dy).coerceIn(0, world.getJSONArray("tiles").length()-1)
                 enemy.put("x", newX)
                 enemy.put("y", newY)
+            }
+            // Enemy attacks player if close
+            if(Math.abs(enemy.getInt("x")-playerX)<=1 && Math.abs(enemy.getInt("y")-playerY)<=1){
+                if(!shieldActive) playerHP -= 1
             }
         }
     }
@@ -220,8 +301,36 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
                 playerX = tx
                 playerY = ty
             }
+            // Simple on-screen buttons
+            if(event.x > width-200 && event.y > height-200){
+                attack()
+            } else if(event.x > width-400 && event.y > height-200){
+                shield()
+            }
         }
         return true
+    }
+
+    private fun attack(){
+        if(attackCooldown==0){
+            for(enemy in enemies){
+                if(Math.abs(enemy.getInt("x")-playerX)<=1 && Math.abs(enemy.getInt("y")-playerY)<=1){
+                    val hp = enemy.getInt("hp")-10
+                    if(hp<=0) enemies.remove(enemy) else enemy.put("hp", hp)
+                    playerLevel++
+                    break
+                }
+            }
+            attackCooldown = 20
+        }
+    }
+
+    private fun shield(){
+        shieldActive = true
+        Thread{
+            Thread.sleep(1000)
+            shieldActive = false
+        }.start()
     }
 }
 EOL
