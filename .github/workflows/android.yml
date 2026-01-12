@@ -1,7 +1,7 @@
 name: Procedural RPG APK Build
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # strictly manual trigger
 
 jobs:
   generate-and-build:
@@ -27,18 +27,15 @@ jobs:
           build-tools: 34.0.0
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y imagemagick jq
+        run: sudo apt-get update && sudo apt-get install -y imagemagick jq unzip curl
 
-      - name: Debug repository contents
-        run: ls -R
-
-      - name: Run RPG generator script
+      - name: Generate RPG project
         run: bash scripts/generate_rpg.sh
 
       - name: Build debug APK
         run: ./gradlew clean assembleDebug --stacktrace
 
-      - name: Upload debug APK
+      - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: procedural-rpg-debug.apk
