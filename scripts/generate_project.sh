@@ -8,8 +8,10 @@ SRC="app/src/main"
 JAVA_DIR="$SRC/java/com/example/rpg"
 RES="$SRC/res"
 
+# Ensure required directories exist
 mkdir -p "$JAVA_DIR"
 mkdir -p "$RES/layout" "$RES/values"
+mkdir -p "$RES/mipmap-48x48" "$RES/mipmap-72x72" "$RES/mipmap-96x96" "$RES/mipmap-144x144" "$RES/mipmap-192x192" "$RES/mipmap-anydpi-v26"
 
 ########################################
 # AndroidManifest.xml
@@ -58,7 +60,7 @@ cat > "$RES/layout/activity_main.xml" <<EOF
 EOF
 
 ########################################
-# MainActivity.kt
+# MainActivity.kt (minimal placeholder)
 ########################################
 cat > "$JAVA_DIR/MainActivity.kt" <<EOF
 package $PKG
